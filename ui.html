@@ -1,124 +1,99 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clipboard Plugin</title>
   <style>
     body {
-      font-family: Inter, sans-serif;
-      width: 320px;
-      height: 400px;
-      padding: 8px;
-      margin: 0;
-      box-sizing: border-box;
+      background-color: #1E1E1E; /* Dark mode background */
+      color: #FFFFFF; /* Light text */
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    p {
+      font-size: 12px;
+      margin-bottom: 8px;
+      text-align: left;
+      color: #cacaca;
+      padding: 0px 8px 8px 0px;  
+    }
+
+    #clipboard-container {
+      background-color: #2D2D2D;
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 60vh; /* Scrollable */
+      overflow-y: auto;
+      text-align: left;
       font-size: 14px;
     }
-    #clipboard-container {
-      margin: 32px 0;
-    }
+
     .clipboard-item {
-      background-color: #f0f0f0;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 8px;
-      word-wrap: break-word;
-      font-size: 12px;
-      cursor: pointer;
-      transition: background-color 0.3s ease, transform 0.3s ease;
+      padding: 6px;
+      border-bottom: 1px solid #444;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      cursor: pointer; /* Clickable */
     }
+
     .clipboard-item:hover {
-      background-color: #e0e0e0;
+      white-space: normal;
+      background-color: #3A3A3A;
+      padding: 6px;
+      border-radius: 4px;
+      position: relative;
+      z-index: 10;
     }
-    .clipboard-item.animate {
-      animation: highlight 0.5s ease;
-    }
-    @keyframes highlight {
-      0% {
-        background-color: #e0e0e0;
-        transform: scale(1);
-      }
-      50% {
-        background-color: #d0d0d0;
-        transform: scale(1.05);
-      }
-      100% {
-        background-color: #e0e0e0;
-        transform: scale(1);
-      }
-    }
-    #clear-clipboard {
-      width: 100%;
-      padding: 12px;
-      background-color: #FF3B30;
+
+    button {
+      background-color: #6C757D; /* Grey button */
       color: white;
       border: none;
-      border-radius: 4px;
+      padding: 10px 16px;
+      border-radius: 6px;
       cursor: pointer;
+      margin-top: 10px;
       font-size: 14px;
-      display: none;
+      width: 100%;
     }
-    #clear-clipboard:hover {
-      background-color: #BC2219;
-    }
-    .default-message {
-      text-align: center;
-      color: #888;
-      font-size: 16px;
-      padding: 56px 16px;
-      border-radius: 8px;
-      background-color: #f9f9f9;
-      border: 1px solid #e0e0e0;
+
+    button:hover {
+      background-color: #5A6268;
     }
   </style>
 </head>
 <body>
-  <div id="clipboard-container">
-    <div id="default-message" class="default-message">
-      Select as many text elements as you want to copy to clipboard
-    </div>
-  </div>
-  <button id="clear-clipboard">Clear</button>
-  <script>
-    const clipboardContainer = document.getElementById('clipboard-container');
-    const defaultMessage = document.getElementById('default-message');
-    const clearButton = document.getElementById('clear-clipboard');
+  <p>Select text elements in Figma to copy them to the clipboard. Click an item in the clipboard to paste it back.</p>
+  <div id="clipboard-container"></div>
+  <button id="clearClipboard">Clear Clipboard</button>
 
-    clearButton.onclick = () => {
-      parent.postMessage({ pluginMessage: { type: 'clear-clipboard' } }, '*');
+  <script>
+    window.onmessage = (event) => {
+      const message = event.data.pluginMessage;
+      if (message.type === 'update-clipboard') {
+        const container = document.getElementById('clipboard-container');
+        container.innerHTML = message.items.map(item => 
+          `<div class="clipboard-item" data-text="${item}" title="${item}">${item.length > 100 ? item.substring(0, 100) + '...' : item}</div>`).join('');
+      }
     };
 
-    function pasteToFigma(content) {
-      parent.postMessage({ pluginMessage: { type: 'paste-content', content } }, '*');
-    }
-
-    window.addEventListener('message', (event) => {
-      const { type, items } = event.data.pluginMessage;
-      if (type === 'update-clipboard') {
-        clipboardContainer.innerHTML = '';
-        if (items.length === 0) {
-          clipboardContainer.appendChild(defaultMessage);
-          clearButton.style.display = 'none';
-        } else {
-          items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'clipboard-item';
-            div.textContent = item;
-
-            div.onclick = () => {
-              pasteToFigma(item);
-              div.classList.add('animate');
-              setTimeout(() => div.classList.remove('animate'), 500);
-            };
-
-            clipboardContainer.appendChild(div);
-          });
-          if (defaultMessage.parentNode) {
-            defaultMessage.parentNode.removeChild(defaultMessage);
-          }
-          clearButton.style.display = 'block';
-        }
+    // Handle click event to paste text back into Figma
+    document.getElementById('clipboard-container').addEventListener('click', (event) => {
+      if (event.target.classList.contains('clipboard-item')) {
+        const textToPaste = event.target.getAttribute('data-text');
+        parent.postMessage({ pluginMessage: { type: 'paste-text', text: textToPaste } }, '*');
       }
+    });
+
+    document.getElementById('clearClipboard').addEventListener('click', () => {
+      parent.postMessage({ pluginMessage: { type: 'clear-clipboard' } }, '*');
     });
   </script>
 </body>
