@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: Inter, sans-serif;
+      width: 320px;
+      height: 400px;
+      padding: 8px;
+      margin: 0;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+    #clipboard-container {
+      margin: 32px 0;
+    }
+    .clipboard-item {
+      background-color: #f0f0f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      word-wrap: break-word;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.3s ease;
+    }
+    .clipboard-item:hover {
+      background-color: #e0e0e0;
+    }
+    .clipboard-item.animate {
+      animation: highlight 0.5s ease;
+    }
+    @keyframes highlight {
+      0% {
+        background-color: #e0e0e0;
+        transform: scale(1);
+      }
+      50% {
+        background-color: #d0d0d0;
+        transform: scale(1.05);
+      }
+      100% {
+        background-color: #e0e0e0;
+        transform: scale(1);
+      }
+    }
+    #clear-clipboard {
+      width: 100%;
+      padding: 12px;
+      background-color: #FF3B30;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      display: none;
+    }
+    #clear-clipboard:hover {
+      background-color: #BC2219;
+    }
+    .default-message {
+      text-align: center;
+      color: #888;
+      font-size: 16px;
+      padding: 56px 16px;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+      border: 1px solid #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div id="clipboard-container">
+    <div id="default-message" class="default-message">
+      Select as many text elements as you want to copy to clipboard
+    </div>
+  </div>
+  <button id="clear-clipboard">Clear</button>
+  <script>
+    const clipboardContainer = document.getElementById('clipboard-container');
+    const defaultMessage = document.getElementById('default-message');
+    const clearButton = document.getElementById('clear-clipboard');
+
+    clearButton.onclick = () => {
+      parent.postMessage({ pluginMessage: { type: 'clear-clipboard' } }, '*');
+    };
+
+    function pasteToFigma(content) {
+      parent.postMessage({ pluginMessage: { type: 'paste-content', content } }, '*');
+    }
+
+    window.addEventListener('message', (event) => {
+      const { type, items } = event.data.pluginMessage;
+      if (type === 'update-clipboard') {
+        clipboardContainer.innerHTML = '';
+        if (items.length === 0) {
+          clipboardContainer.appendChild(defaultMessage);
+          clearButton.style.display = 'none';
+        } else {
+          items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'clipboard-item';
+            div.textContent = item;
+
+            div.onclick = () => {
+              pasteToFigma(item);
+              div.classList.add('animate');
+              setTimeout(() => div.classList.remove('animate'), 500);
+            };
+
+            clipboardContainer.appendChild(div);
+          });
+          if (defaultMessage.parentNode) {
+            defaultMessage.parentNode.removeChild(defaultMessage);
+          }
+          clearButton.style.display = 'block';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
