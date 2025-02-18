@@ -1,23 +1,25 @@
+// This file holds the main code for plugins. Code in this file has access to
+// the *figma document* via the figma global object.
+// You can access browser APIs in the <script> tag inside "ui.html" which has a
+// full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
 if (figma.editorType === 'figma') {
   figma.showUI(__html__, { width: 320, height: 400 });
 
   const MAX_CLIPBOARD_ITEMS = 10;
   let clipboardItems: string[] = [];
 
-  // Load saved items when plugin starts
   async function loadSavedItems() {
     try {
       const savedItems = await figma.clientStorage.getAsync('clipboardItems');
-      if (savedItems && Array.isArray(savedItems)) {
+      if (Array.isArray(savedItems)) {
         clipboardItems = savedItems;
-        updateUI();
+        figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
       }
     } catch (error) {
       console.error('Error loading saved items:', error);
     }
   }
 
-  // Save clipboard items to persistent storage
   async function saveItems() {
     try {
       await figma.clientStorage.setAsync('clipboardItems', clipboardItems);
@@ -26,70 +28,48 @@ if (figma.editorType === 'figma') {
     }
   }
 
-  // Update the plugin UI
-  function updateUI() {
-    figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
-  }
+  loadSavedItems();
 
-  // Intercept native copy event
-  figma.on('copy', async () => {
-    const selection = figma.currentPage.selection;
-    let copiedTexts: string[] = [];
-
-    for (const node of selection) {
-      if (node.type === 'TEXT') {
-        await figma.loadFontAsync(node.fontName as FontName);
-        copiedTexts.push(node.characters);
-      }
-    }
-
-    if (copiedTexts.length > 0) {
-      clipboardItems = [...copiedTexts, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
-      await saveItems();
-      updateUI();
-    }
-  });
-
-  // Intercept native paste event
-  figma.on('paste', async () => {
-    if (clipboardItems.length === 0) return;
-
-    const content = clipboardItems[0]; // Paste the most recent copied item
-    const selection = figma.currentPage.selection;
-
-    if (selection.length > 0) {
-      for (const node of selection) {
-        if (node.type === 'TEXT') {
-          await figma.loadFontAsync(node.fontName as FontName);
-          node.characters = content;
-        }
-      }
-    } else {
-      // Create a new text node if nothing is selected
-      const newTextNode = figma.createText();
-      await figma.loadFontAsync(newTextNode.fontName as FontName);
-      newTextNode.characters = content;
-      figma.currentPage.appendChild(newTextNode);
-      figma.currentPage.selection = [newTextNode];
-      figma.viewport.scrollAndZoomIntoView([newTextNode]);
-    }
-  });
-
-  // Handle UI messages
   figma.ui.onmessage = async (msg: { type: string; content?: string }) => {
     if (msg.type === 'clear-clipboard') {
       clipboardItems = [];
       await saveItems();
-      updateUI();
+      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
     }
 
-    if (msg.type === 'remove-item' && msg.content) {
-      clipboardItems = clipboardItems.filter(item => item !== msg.content);
-      await saveItems();
-      updateUI();
+    if (msg.type === 'paste-content' && msg.content) {
+      await figma.loadFontAsync({ family: "Inter", style: "Regular" }); // Ensure font is loaded
+      const selection = figma.currentPage.selection;
+      const textNodes = selection.filter(node => node.type === 'TEXT') as TextNode[];
+
+      if (textNodes.length > 0) {
+        textNodes[0].characters = msg.content;
+      } else {
+        const newTextNode = figma.createText();
+        await figma.loadFontAsync(newTextNode.fontName as FontName);
+        newTextNode.characters = msg.content;
+        figma.currentPage.appendChild(newTextNode);
+        figma.currentPage.selection = [newTextNode];
+        figma.viewport.scrollAndZoomIntoView([newTextNode]);
+      }
     }
   };
 
-  // Load saved items on startup
-  loadSavedItems();
+  figma.on('selectionchange', async () => {
+    const selection = figma.currentPage.selection;
+    let newItems: string[] = [];
+
+    for (const node of selection) {
+      if (node.type === 'TEXT' && node.characters.trim() !== '') {
+        await figma.loadFontAsync(node.fontName as FontName);
+        newItems.push(node.characters);
+      }
+    }
+
+    if (newItems.length > 0) {
+      clipboardItems = [...newItems, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
+      await saveItems();
+      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
+    }
+  });
 }

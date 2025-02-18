@@ -8,7 +8,7 @@
     body {
       background-color: #1E1E1E; /* Dark mode background */
       color: #FFFFFF; /* Light text */
-      font-family: Arial, sans-serif;
+      font-family: ar, sans-serif;
       font-size: 14px;
       padding: 8px;
       text-align: center;
@@ -38,8 +38,7 @@
     }
 
     .clipboard-item {
-      padding: 6px;
-      border-bottom: 1px solid #444;
+      padding: 8px;
       font-size: 14px;
       white-space: nowrap;
       overflow: hidden;
@@ -52,8 +51,10 @@
     .clipboard-item:hover {
       white-space: normal;
       background-color: #3A3A3A;
-      padding: 6px;
-      border-radius: 4px;
+      border: 0.5px solid #3e3e3e;
+      border-radius: 8px;
+      padding: 8px;
+      border-radius: 8px;
       position: relative;
       z-index: 10;
     }
@@ -86,9 +87,13 @@
   <div id="clipboard-container">
     <span id="emptyMessage" class="empty-placeholder">Select any text to copy to clipboard and click from clipboard to paste.</span>
   </div>
-  <button id="clearClipboard">Clear Clipboard</button>
+  <button id="clearClipboard">Clear All</button>
 
   <script>
+    function pasteToFigma(content) {
+      parent.postMessage({ pluginMessage: { type: 'paste-text', content } }, '*');
+    }
+
     window.onmessage = (event) => {
       const message = event.data.pluginMessage;
       const container = document.getElementById('clipboard-container');
@@ -108,7 +113,7 @@
     document.getElementById('clipboard-container').addEventListener('click', (event) => {
       if (event.target.classList.contains('clipboard-item')) {
         const textToPaste = event.target.getAttribute('data-text');
-        parent.postMessage({ pluginMessage: { type: 'paste-text', text: textToPaste } }, '*');
+        pasteToFigma(textToPaste);
       }
     });
 
