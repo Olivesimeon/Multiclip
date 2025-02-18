@@ -6,54 +6,74 @@
   <title>Clipboard Plugin</title>
   <style>
     body {
-      background-color: #1E1E1E; /* Dark mode background */
-      color: #FFFFFF; /* Light text */
+      background-color: #1E1E1E;
+      color: #FFFFFF;
       font-family: Arial, sans-serif;
-      font-size: 14px;
+      font-size: 16px;
       padding: 16px;
       text-align: center;
     }
 
     p {
-      font-size: 12px;
-      margin-bottom: 8px;
+      font-size: 14px;
+      margin-bottom: 10px;
       text-align: left;
       color: #cacaca;
-      padding: 0px 8px 8px 0px;  
     }
 
     #clipboard-container {
       background-color: #2D2D2D;
       border-radius: 8px;
       padding: 10px;
-      max-height: 60vh; /* Scrollable */
+      max-height: 60vh;
       overflow-y: auto;
       text-align: left;
       font-size: 14px;
     }
 
     .clipboard-item {
-      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px;
       border-bottom: 1px solid #444;
       font-size: 14px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 100%;
-      cursor: pointer; /* Clickable */
+      cursor: pointer;
+      transition: background 0.2s;
     }
 
     .clipboard-item:hover {
-      white-space: normal;
       background-color: #3A3A3A;
-      padding: 6px;
+      white-space: normal;
       border-radius: 4px;
-      position: relative;
-      z-index: 10;
+    }
+
+    .clipboard-item button {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .clipboard-item button:hover {
+      color: #ff4a4a;
+    }
+
+    .clipboard-item .copy-btn {
+      color: #55c2ff;
+    }
+
+    .clipboard-item .copy-btn:hover {
+      color: #2fa8f2;
     }
 
     button {
-      background-color: #6C757D; /* Grey button */
+      background-color: #323232;
       color: white;
       border: none;
       padding: 10px 16px;
@@ -70,7 +90,7 @@
   </style>
 </head>
 <body>
-  <p>Select text elements in Figma to copy them to the clipboard. Click an item in the clipboard to paste it back.</p>
+  <p>Select text elements in Figma to copy them to the clipboard. Click an item to paste or use the copy button.</p>
   <div id="clipboard-container"></div>
   <button id="clearClipboard">Clear Clipboard</button>
 
@@ -78,22 +98,43 @@
     window.onmessage = (event) => {
       const message = event.data.pluginMessage;
       if (message.type === 'update-clipboard') {
-        const container = document.getElementById('clipboard-container');
-        container.innerHTML = message.items.map(item => 
-          `<div class="clipboard-item" data-text="${item}" title="${item}">${item.length > 100 ? item.substring(0, 100) + '...' : item}</div>`).join('');
+        updateClipboard(message.items);
       }
     };
 
-    // Handle click event to paste text back into Figma
+    function updateClipboard(items) {
+      const container = document.getElementById('clipboard-container');
+      container.innerHTML = items.map(item => 
+        `<div class="clipboard-item" data-text="${item}" title="${item}">
+          <span>${item.length > 80 ? item.substring(0, 80) + '...' : item}</span>
+          <button class="copy-btn" onclick="copyToClipboard(event, '${item}')">📋</button>
+          <button onclick="removeItem(event, '${item}')">❌</button>
+        </div>`).join('');
+    }
+
+    function copyToClipboard(event, text) {
+      event.stopPropagation();
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Copied to clipboard!");
+      });
+    }
+
+    function removeItem(event, text) {
+      event.stopPropagation();
+      parent.postMessage({ pluginMessage: { type: 'remove-item', text } }, '*');
+    }
+
     document.getElementById('clipboard-container').addEventListener('click', (event) => {
-      if (event.target.classList.contains('clipboard-item')) {
-        const textToPaste = event.target.getAttribute('data-text');
+      if (event.target.closest('.clipboard-item')) {
+        const textToPaste = event.target.closest('.clipboard-item').getAttribute('data-text');
         parent.postMessage({ pluginMessage: { type: 'paste-text', text: textToPaste } }, '*');
       }
     });
 
     document.getElementById('clearClipboard').addEventListener('click', () => {
-      parent.postMessage({ pluginMessage: { type: 'clear-clipboard' } }, '*');
+      if (confirm("Are you sure you want to clear the clipboard?")) {
+        parent.postMessage({ pluginMessage: { type: 'clear-clipboard' } }, '*');
+      }
     });
   </script>
 </body>
