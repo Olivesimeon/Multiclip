@@ -8,9 +8,9 @@
     body {
       background-color: #1E1E1E; /* Dark mode background */
       color: #FFFFFF; /* Light text */
-      font-family: ar, sans-serif;
+      font-family: Arial, sans-serif;
       font-size: 14px;
-      padding: 8px;
+      padding: 16px;
       text-align: center;
     }
 
@@ -24,21 +24,22 @@
 
     #clipboard-container {
       background-color: #2D2D2D;
-      border-radius: 12px;
-      padding: 12px 12px;
-      max-height: 70vh;
-      min-height: 70vh; /* Ensure a fixed height */
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 60vh;
+      min-height: 60vh; /* Ensure a fixed height */
       overflow-y: auto;
       text-align: left;
       font-size: 14px;
-      display: flexbox;
+      display: flex;
       flex-direction: column;
-      justify-content: top; /* Center content when empty */
-      align-items: top;
+      justify-content: center; /* Center content when empty */
+      align-items: center;
     }
 
     .clipboard-item {
-      padding: 8px;
+      padding: 6px;
+      border-bottom: 1px solid #444;
       font-size: 14px;
       white-space: nowrap;
       overflow: hidden;
@@ -51,10 +52,8 @@
     .clipboard-item:hover {
       white-space: normal;
       background-color: #3A3A3A;
-      border: 0.5px solid #3e3e3e;
-      border-radius: 8px;
-      padding: 8px;
-      border-radius: 8px;
+      padding: 6px;
+      border-radius: 4px;
       position: relative;
       z-index: 10;
     }
@@ -62,16 +61,16 @@
     .empty-placeholder {
       color: #888;
       font-size: 14px;
-      font-style: none;
-      text-align: left;
+      font-style: italic;
+      text-align: center;
     }
 
     button {
-      background-color: #2F80ED;
+      background-color: #323232;
       color: white;
       border: none;
-      padding: 16px 16px;
-      border-radius: 8px;
+      padding: 10px 16px;
+      border-radius: 6px;
       cursor: pointer;
       margin-top: 10px;
       font-size: 14px;
@@ -79,21 +78,18 @@
     }
 
     button:hover {
-      background-color: #5e93d9;
+      background-color: #5A6268;
     }
   </style>
 </head>
 <body>
+  <p>Select text elements in Figma to copy them to the clipboard. Click an item to paste.</p>
   <div id="clipboard-container">
-    <span id="emptyMessage" class="empty-placeholder">Select any text to copy to clipboard and click from clipboard to paste.</span>
+    <span id="emptyMessage" class="empty-placeholder">Clipboard is empty</span>
   </div>
-  <button id="clearClipboard">Clear All</button>
+  <button id="clearClipboard">Clear Clipboard</button>
 
   <script>
-    function pasteToFigma(content) {
-      parent.postMessage({ pluginMessage: { type: 'paste-text', content } }, '*');
-    }
-
     window.onmessage = (event) => {
       const message = event.data.pluginMessage;
       const container = document.getElementById('clipboard-container');
@@ -106,14 +102,14 @@
                 ${item.length > 100 ? item.substring(0, 100) + '...' : item}
               </div>`
             ).join('')
-          : '<span id="emptyMessage" class="empty-placeholder">Select any text to copy to clipboard and click from clipboard to paste.</span>';
+          : '<span id="emptyMessage" class="empty-placeholder">Clipboard is empty</span>';
       }
     };
 
     document.getElementById('clipboard-container').addEventListener('click', (event) => {
       if (event.target.classList.contains('clipboard-item')) {
         const textToPaste = event.target.getAttribute('data-text');
-        pasteToFigma(textToPaste);
+        parent.postMessage({ pluginMessage: { type: 'paste-text', text: textToPaste } }, '*');
       }
     });
 
