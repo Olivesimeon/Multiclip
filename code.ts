@@ -32,13 +32,14 @@ if (figma.editorType === 'figma') {
   loadSavedItems();
 
   figma.ui.onmessage = async (msg: { type: string; content?: string }) => {
+    console.log('msg', msg);
     if (msg.type === 'clear-clipboard') {
       clipboardItems = [];
       await saveItems();
       figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
     }
-
-    if (msg.type === 'paste-content' && msg.content) {
+    
+    if (msg.type === 'paste-text' && msg.content) {
       await figma.loadFontAsync({ family: "Inter", style: "Regular" }); // Ensure font is loaded
       const selection = figma.currentPage.selection;
       const textNodes = selection.filter(node => node.type === 'TEXT') as TextNode[];
@@ -53,6 +54,20 @@ if (figma.editorType === 'figma') {
         figma.currentPage.selection = [newTextNode];
         figma.viewport.scrollAndZoomIntoView([newTextNode]);
       }
+    }
+    if (msg.type === "add-to-clipboard" && msg.content){
+      const selection = msg.content;
+    let newItems: string[] = [];
+
+      if (selection.trim() !== '') {
+        newItems.push(selection);
+      }
+  
+    if (newItems.length > 0) {
+      clipboardItems = [...newItems, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
+      await saveItems();
+      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
+    }
     }
   };
 
