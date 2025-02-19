@@ -1,91 +1,69 @@
-// This file holds the main code for plugins. Code in this file has access to
-// the *figma document* via the figma global object.
-// You can access browser APIs in the <script> tag inside "ui.html" which has a
-// full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
+"use strict";
 
-if (figma.editorType === 'figma') {
-  figma.showUI(__html__, { width: 320, height: 500 });
+if (figma.editorType === "figma") {
+  figma.showUI(__html__, { width: 400, height: 560 });
 
   const MAX_CLIPBOARD_ITEMS = 10;
   let clipboardItems: string[] = [];
 
-  async function loadSavedItems() {
+  /** Load clipboard items from storage */
+  async function loadClipboardItems(): Promise<void> {
     try {
-      const savedItems = await figma.clientStorage.getAsync('clipboardItems');
+      const savedItems = await figma.clientStorage.getAsync("clipboardItems");
       if (Array.isArray(savedItems)) {
-        clipboardItems = savedItems;
-        figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
+        clipboardItems = savedItems as string[];
+        updateUI();
       }
     } catch (error) {
-      console.error('Error loading saved items:', error);
+      console.error("Error loading clipboard items:", error);
     }
   }
 
-  async function saveItems() {
+  /** Save clipboard items to storage */
+  async function saveClipboardItems(): Promise<void> {
     try {
-      await figma.clientStorage.setAsync('clipboardItems', clipboardItems);
+      await figma.clientStorage.setAsync("clipboardItems", clipboardItems);
     } catch (error) {
-      console.error('Error saving items:', error);
+      console.error("Error saving clipboard items:", error);
     }
   }
 
-  loadSavedItems();
+  /** Update UI with clipboard items */
+  function updateUI(): void {
+    figma.ui.postMessage({ type: "update-clipboard", items: clipboardItems });
+  }
 
-  figma.ui.onmessage = async (msg: { type: string; content?: string }) => {
-    console.log('msg', msg);
-    if (msg.type === 'clear-clipboard') {
+  /** Handle messages from UI */
+  figma.ui.onmessage = async (msg: any) => {
+    if (msg.type === "clear-clipboard") {
       clipboardItems = [];
-      await saveItems();
-      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
+      await saveClipboardItems();
+      updateUI();
     }
-    
-    if (msg.type === 'paste-text' && msg.content) {
-      await figma.loadFontAsync({ family: "Inter", style: "Regular" }); // Ensure font is loaded
-      const selection = figma.currentPage.selection;
-      const textNodes = selection.filter(node => node.type === 'TEXT') as TextNode[];
 
-      if (textNodes.length > 0) {
-        textNodes[0].characters = msg.content;
-      } else {
-        const newTextNode = figma.createText();
-        await figma.loadFontAsync(newTextNode.fontName as FontName);
-        newTextNode.characters = msg.content;
-        figma.currentPage.appendChild(newTextNode);
-        figma.currentPage.selection = [newTextNode];
-        figma.viewport.scrollAndZoomIntoView([newTextNode]);
-      }
+    if (msg.type === "paste-text" && msg.content) {
+      pasteText(msg.content);
     }
-    if (msg.type === "add-to-clipboard" && msg.content){
-      const selection = msg.content;
-    let newItems: string[] = [];
 
-      if (selection.trim() !== '') {
-        newItems.push(selection);
-      }
-  
-    if (newItems.length > 0) {
-      clipboardItems = [...newItems, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
-      await saveItems();
-      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
-    }
-    }
   };
 
-  figma.on('selectionchange', async () => {
+
+  /** Paste text into the selected node or create a new text node */
+  async function pasteText(content: string): Promise<void> {
     const selection = figma.currentPage.selection;
-    let newItems: string[] = [];
+    const textNodes = selection.filter(node => node.type === "TEXT") as TextNode[];
 
-    for (const node of selection) {
-      if (node.type === 'TEXT' && node.characters.trim() !== '') {
-        await figma.loadFontAsync(node.fontName as FontName);
-        newItems.push(node.characters);
-      }
+    if (textNodes.length > 0) {
+      textNodes[0].characters = content;
+    } else {
+      const newTextNode = figma.createText();
+      newTextNode.characters = content;
+      figma.currentPage.appendChild(newTextNode);
+      figma.currentPage.selection = [newTextNode];
+      figma.viewport.scrollAndZoomIntoView([newTextNode]);
     }
+  }
 
-    if (newItems.length > 0) {
-      clipboardItems = [...newItems, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
-      await saveItems();
-      figma.ui.postMessage({ type: 'update-clipboard', items: clipboardItems });
-    }
-  });
+  // Load clipboard items on plugin start
+  loadClipboardItems();
 }
