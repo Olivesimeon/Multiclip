@@ -28,9 +28,9 @@ if (figma.editorType === "figma") {
         }
     }
 
-    /** Notify UI to listen for keypress events */
+    /** Notify UI to enable copy listener */
     figma.ui.postMessage({ type: "enable-copy-listener" });
-    
+
     /** Update UI with clipboard items */
     function updateUI() {
         figma.ui.postMessage({ type: "update-clipboard", items: clipboardItems });
@@ -45,7 +45,7 @@ if (figma.editorType === "figma") {
         }
 
         if (msg.type === "paste-text" && msg.content) {
-            pasteText(msg.content);
+            pasteText(msg.content, msg.append);
         }
 
         if (msg.type === "copy-text") {
@@ -53,22 +53,32 @@ if (figma.editorType === "figma") {
         }
     };
 
-    /** Paste text into the selected node or create a new text node */
-    async function pasteText(content) {
+    /** Load all fonts for a text node */
+    async function loadAllFonts(textNode) {
+        const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
+        for (const font of fonts) {
+            await figma.loadFontAsync(font);
+        }
+    }
+
+    /** Paste text into selected text node or create a new one */
+    async function pasteText(content, append = false) {
         const selection = figma.currentPage.selection;
         const textNodes = selection.filter(node => node.type === "TEXT");
 
         if (textNodes.length > 0) {
-            textNodes[0].characters = content;
+            const textNode = textNodes[0];
+            await loadAllFonts(textNode);
+            textNode.characters = append ? textNode.characters + "\n" + content : content;
         } else {
             const newTextNode = figma.createText();
+            await figma.loadFontAsync(newTextNode.fontName);
             newTextNode.characters = content;
             figma.currentPage.appendChild(newTextNode);
             figma.currentPage.selection = [newTextNode];
             figma.viewport.scrollAndZoomIntoView([newTextNode]);
         }
     }
-
 
     /** Copy selected text nodes */
     async function copySelectedText() {
@@ -77,30 +87,24 @@ if (figma.editorType === "figma") {
 
         for (const node of selection) {
             if (node.type === "TEXT" && node.characters.trim() !== "") {
-                await figma.loadFontAsync(node.fontName);
+                await loadAllFonts(node);
                 newItems.push(node.characters);
             } else if (node.type === "FRAME" || node.type === "GROUP") {
                 const textNodes = node.findAll(n => n.type === "TEXT");
                 for (const textNode of textNodes) {
-                    await figma.loadFontAsync(textNode.fontName);
+                    await loadAllFonts(textNode);
                     newItems.push(textNode.characters);
                 }
             }
         }
 
         if (newItems.length > 0) {
-            clipboardItems = [...newItems, ...clipboardItems].slice(0, MAX_CLIPBOARD_ITEMS);
+            // Prevent duplicates
+            clipboardItems = [...new Set([...newItems, ...clipboardItems])].slice(0, MAX_CLIPBOARD_ITEMS);
             await saveClipboardItems();
             updateUI();
         }
     }
-
-    /** Detect selection changes and enable copy listener */
-    figma.on("selectionchange", async () => {
-        await copySelectedText();
-    });
-
-    
 
     // Load clipboard items on plugin start
     loadClipboardItems();

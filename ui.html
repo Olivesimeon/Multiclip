@@ -183,12 +183,10 @@
       }
     };
 
-    // document.addEventListener("keydown", (event) => {
-    //         if ((event.ctrlKey || event.metaKey) && event.key === "c") {
-    //             event.preventDefault();  // Override default copy behavior
-    //             parent.postMessage({ pluginMessage: { type: "copy-text" } }, "*");
-    //         }
-    //     });
+    copyButton.addEventListener("click", () => {
+    parent.postMessage({ pluginMessage: { type: "copy-text" } }, "*");
+});
+
 
     document.getElementById('clipboard-container').addEventListener('click', (event) => {
       if (event.target.classList.contains('clipboard-item')) {
